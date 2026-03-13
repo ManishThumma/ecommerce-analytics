@@ -66,7 +66,7 @@ def plot_retention_heatmap(retention: pd.DataFrame):
 
     plt.figure(figsize=(16, 8))
     mask = ret.isnull()
-    annot = ret.applymap(lambda v: f"{v:.0f}%" if not pd.isna(v) else "")
+    annot = ret.map(lambda v: f"{v:.0f}%" if not pd.isna(v) else "")
     sns.heatmap(ret, annot=annot, fmt="", cmap="YlGnBu", linewidths=0.3,
                 mask=mask, vmin=0, vmax=100,
                 cbar_kws={"label": "Retention Rate (%)"})

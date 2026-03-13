@@ -241,10 +241,10 @@ elif page == "Revenue Trends":
                       labels={"aov": "AOV ($)", "month": ""})
     col2.plotly_chart(fig_aov, use_container_width=True)
 
-    # Category breakdown
-    items_merged = items.merge(products[["product_id", "category"]], on="product_id")
-    items_merged["month"] = items_merged["order_date"].dt.to_period("M").dt.to_timestamp()
-    cat_monthly = items_merged.groupby(["month", "category"])["revenue"].sum().reset_index()
+    # Category breakdown — items already carries 'category' from the generator
+    items_cat = items.copy()
+    items_cat["month"] = items_cat["order_date"].dt.to_period("M").dt.to_timestamp()
+    cat_monthly = items_cat.groupby(["month", "category"])["revenue"].sum().reset_index()
 
     fig_cat = px.area(cat_monthly, x="month", y="revenue", color="category",
                       title="Revenue by Category (Stacked)",
@@ -257,10 +257,28 @@ elif page == "Revenue Trends":
 elif page == "Customer Segments":
     st.title("Customer Segmentation — RFM")
 
-    rfm_df = load_output("rfm_scores.csv")
-    if rfm_df.empty:
-        st.warning("Run `python analysis/rfm_analysis.py` first to generate RFM scores.")
-        st.stop()
+    @st.cache_data(ttl=3600)
+    def compute_rfm(orders_df):
+        snapshot = orders_df["order_date"].max() + pd.Timedelta(days=1)
+        rfm = orders_df.groupby("customer_id").agg(
+            recency=("order_date", lambda x: (snapshot - x.max()).days),
+            frequency=("order_id", "nunique"),
+            monetary=("total_amount", "sum"),
+        ).reset_index()
+        rfm["r_score"] = pd.qcut(rfm["recency"],  q=5, labels=[5,4,3,2,1]).astype(int)
+        rfm["f_score"] = pd.qcut(rfm["frequency"].rank(method="first"), q=5, labels=[1,2,3,4,5]).astype(int)
+        rfm["m_score"] = pd.qcut(rfm["monetary"],  q=5, labels=[1,2,3,4,5]).astype(int)
+        def label(r, f, m):
+            if r >= 4 and f >= 4 and m >= 4: return "Champions"
+            if f >= 3 and m >= 3:             return "Loyal Customers"
+            if r >= 3 and f <= 2:             return "Potential Loyalist"
+            if r <= 2 and f >= 3 and m >= 3:  return "At Risk"
+            if r <= 2 and f <= 2 and m <= 2:  return "Hibernating"
+            return "Others"
+        rfm["segment"] = rfm.apply(lambda x: label(x.r_score, x.f_score, x.m_score), axis=1)
+        return rfm
+
+    rfm_df = compute_rfm(orders)
 
     seg_summary = rfm_df.groupby("segment").agg(
         customers=("customer_id", "count"),
@@ -308,16 +326,22 @@ elif page == "Customer Segments":
 elif page == "Cohort Retention":
     st.title("Cohort Retention Analysis")
 
-    cohort_df = load_output("cohort_retention.csv")
-    if cohort_df.empty:
-        st.warning("Run `python analysis/cohort_analysis.py` first.")
-        st.stop()
+    @st.cache_data(ttl=3600)
+    def compute_cohorts(orders_df, customers_df):
+        cust = customers_df[["customer_id", "signup_date"]].copy()
+        cust["cohort_month"] = cust["signup_date"].dt.to_period("M")
+        merged = orders_df.merge(cust, on="customer_id")
+        merged["order_month"]   = merged["order_date"].dt.to_period("M")
+        merged["period_number"] = (
+            merged["order_month"].astype(int) - merged["cohort_month"].astype(int)
+        )
+        merged = merged[merged["period_number"].between(0, 23)]
+        pivot  = merged.groupby(["cohort_month","period_number"])["customer_id"].nunique().unstack()
+        return (pivot.divide(pivot[0], axis=0) * 100).round(1)
 
-    cohort_df.set_index(cohort_df.columns[0], inplace=True)
-    cohort_df.index.name = "Cohort"
-
-    # Show last 12 cohorts, periods 0-12
-    display = cohort_df.iloc[-12:, :13].astype(float)
+    retention = compute_cohorts(orders, customers)
+    display   = retention.iloc[-12:, :13].astype(float)
+    display.index = display.index.strftime("%Y-%m")
 
     fig_heat = go.Figure(data=go.Heatmap(
         z=display.values,
@@ -350,12 +374,32 @@ elif page == "Cohort Retention":
 elif page == "Product Performance":
     st.title("Product Performance")
 
-    perf = load_output("product_performance.csv")
-    if perf.empty:
-        st.warning("Run `python analysis/product_analytics.py` first.")
-        st.stop()
+    @st.cache_data(ttl=3600)
+    def compute_product_perf(orders_df, items_df, products_df):
+        delivered = orders_df[orders_df["status"]=="delivered"]["order_id"]
+        rev = items_df[items_df["order_id"].isin(delivered)].groupby("product_id").agg(
+            units_sold=("quantity","sum"),
+            gross_revenue=("revenue","sum"),
+        ).reset_index()
+        perf = products_df.merge(rev, on="product_id", how="left").fillna(
+            {"units_sold":0,"gross_revenue":0})
+        perf["gross_profit"] = perf["gross_revenue"] - perf["cost"] * perf["units_sold"]
+        perf["margin_pct"]   = np.where(
+            perf["gross_revenue"]>0,
+            perf["gross_profit"]/perf["gross_revenue"]*100, 0)
+        perf["return_rate"]  = 0.0
+        return perf
 
-    cat = load_output("category_summary.csv")
+    @st.cache_data(ttl=3600)
+    def compute_cat_summary(perf_df):
+        return perf_df.groupby("category").agg(
+            total_revenue=("gross_revenue","sum"),
+            total_profit=("gross_profit","sum"),
+            avg_margin_pct=("margin_pct","mean"),
+        ).round(2).reset_index()
+
+    perf = compute_product_perf(orders, items, products)
+    cat  = compute_cat_summary(perf)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Products Analysed", f"{len(perf):,}")
@@ -389,8 +433,7 @@ elif page == "Product Performance":
 
     # Category
     if not cat.empty:
-        cat_reset = cat.reset_index() if cat.index.name == "category" else cat
-        fig_cat = px.bar(cat_reset, x="category", y=["total_revenue", "total_profit"],
+        fig_cat = px.bar(cat, x="category", y=["total_revenue", "total_profit"],
                          barmode="group", title="Revenue vs Profit by Category",
                          labels={"value": "$", "variable": "Metric"},
                          color_discrete_sequence=["#3498db", "#2ecc71"])
