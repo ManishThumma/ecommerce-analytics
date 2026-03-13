@@ -25,6 +25,18 @@ import sys
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+# ── Auto-generate data if CSVs don't exist (e.g. on Streamlit Cloud) ─────────
+def ensure_data():
+    required = ["orders.csv", "customers.csv", "products.csv",
+                "order_items.csv", "events.csv"]
+    missing = [f for f in required if not (ROOT / "data" / f).exists()]
+    if missing:
+        with st.spinner("Generating synthetic data for the first time — this takes ~15 seconds..."):
+            import runpy
+            runpy.run_path(str(ROOT / "data" / "generate_data.py"), run_name="__main__")
+
+ensure_data()
+
 st.set_page_config(
     page_title="E-Commerce Analytics",
     page_icon="📊",
