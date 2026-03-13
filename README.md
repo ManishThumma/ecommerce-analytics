@@ -2,6 +2,8 @@
 
 A full-stack data analytics project that mirrors the kind of instrumentation, analysis, and experimentation infrastructure used at large-scale e-commerce companies.
 
+**Live Dashboard → [manish-ecommerce-analytics.streamlit.app](https://manish-ecommerce-analytics.streamlit.app)**
+
 ---
 
 ## What's Inside
