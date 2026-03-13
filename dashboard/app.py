@@ -467,7 +467,8 @@ elif page == "A/B Testing":
     c2.metric("Treatment CVR", f"{conv.treatment_mean*100:.2f}%",
               delta=f"{conv.relative_lift_pct:+.1f}%")
     sig_label = "✓ Significant" if conv.is_significant else "✗ Not Significant"
-    c3.metric("p-value", f"{conv.p_value:.4f}", delta=sig_label,
+    pval_display = f"{conv.p_value:.2e}" if conv.p_value < 0.0001 else f"{conv.p_value:.4f}"
+    c3.metric("p-value", pval_display, delta=sig_label,
               delta_color="normal" if conv.is_significant else "off")
     c4.metric("Stat Power",    f"{conv.stat_power:.0%}")
 
@@ -508,7 +509,8 @@ elif page == "A/B Testing":
                              "Relative Lift", "p-value", "Power"],
         "Value":            [f"${rev.control_mean:.2f}", f"${rev.treatment_mean:.2f}",
                              f"${rev.absolute_lift:+.2f}", f"{rev.relative_lift_pct:+.2f}%",
-                             f"{rev.p_value:.4f}", f"{rev.stat_power:.0%}"],
+                             f"{rev.p_value:.2e}" if rev.p_value < 0.0001 else f"{rev.p_value:.4f}",
+                             f"{rev.stat_power:.0%}"],
         "Significant":      ["", "", "", "",
                              "Yes" if rev.is_significant else "No", ""],
     }
