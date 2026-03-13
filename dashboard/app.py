@@ -25,24 +25,38 @@ import sys
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-# ── Auto-generate data if CSVs don't exist (e.g. on Streamlit Cloud) ─────────
-def ensure_data():
-    required = ["orders.csv", "customers.csv", "products.csv",
-                "order_items.csv", "events.csv"]
-    missing = [f for f in required if not (ROOT / "data" / f).exists()]
-    if missing:
-        with st.spinner("Generating synthetic data for the first time — this takes ~15 seconds..."):
-            import runpy
-            runpy.run_path(str(ROOT / "data" / "generate_data.py"), run_name="__main__")
-
-ensure_data()
-
 st.set_page_config(
     page_title="E-Commerce Analytics",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Auto-generate data + outputs if running on Streamlit Cloud ───────────────
+def ensure_data():
+    import runpy
+    data_files = ["orders.csv", "customers.csv", "products.csv",
+                  "order_items.csv", "events.csv"]
+    out_files  = ["rfm_scores.csv", "monthly_revenue.csv",
+                  "product_performance.csv", "cohort_retention.csv"]
+
+    if any(not (ROOT / "data" / f).exists() for f in data_files):
+        with st.spinner("Generating data — first load only, ~15 seconds..."):
+            runpy.run_path(str(ROOT / "data" / "generate_data.py"), run_name="__main__")
+
+    (ROOT / "outputs").mkdir(exist_ok=True)
+    if any(not (ROOT / "outputs" / f).exists() for f in out_files):
+        with st.spinner("Running analysis pipeline — first load only, ~30 seconds..."):
+            from analysis.sales_trends   import run as run_sales
+            from analysis.rfm_analysis   import run as run_rfm
+            from analysis.product_analytics import run as run_products
+            from analysis.cohort_analysis   import run as run_cohort
+            run_sales()
+            run_rfm()
+            run_products()
+            run_cohort()
+
+ensure_data()
 
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
