@@ -466,8 +466,9 @@ elif page == "A/B Testing":
     c1.metric("Control CVR",   f"{conv.control_mean*100:.2f}%")
     c2.metric("Treatment CVR", f"{conv.treatment_mean*100:.2f}%",
               delta=f"{conv.relative_lift_pct:+.1f}%")
-    c3.metric("p-value",       f"{conv.p_value:.4f}",
-              delta="SIGNIFICANT" if conv.is_significant else "NOT SIGNIFICANT")
+    sig_label = "✓ Significant" if conv.is_significant else "✗ Not Significant"
+    c3.metric("p-value", f"{conv.p_value:.4f}", delta=sig_label,
+              delta_color="normal" if conv.is_significant else "off")
     c4.metric("Stat Power",    f"{conv.stat_power:.0%}")
 
     st.info(f"**Recommendation:** {conv.recommendation}")

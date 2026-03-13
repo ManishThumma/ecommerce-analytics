@@ -14,6 +14,8 @@ import pandas as pd
 from scipy import stats
 from dataclasses import dataclass, field
 from typing import Optional
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
