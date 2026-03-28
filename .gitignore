@@ -18,6 +18,5 @@ notebooks/.ipynb_checkpoints/
 .DS_Store
 
 # Editor / tool configs
-.claude/
 .vscode/
 .idea/
