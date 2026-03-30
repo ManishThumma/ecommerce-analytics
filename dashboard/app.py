@@ -257,7 +257,6 @@ elif page == "Revenue Trends":
 elif page == "Customer Segments":
     st.title("Customer Segmentation — RFM")
 
-    @st.cache_data(ttl=3600)
     def compute_rfm(orders_df):
         snapshot = orders_df["order_date"].max() + pd.Timedelta(days=1)
         rfm = orders_df.groupby("customer_id").agg(
@@ -326,7 +325,6 @@ elif page == "Customer Segments":
 elif page == "Cohort Retention":
     st.title("Cohort Retention Analysis")
 
-    @st.cache_data(ttl=3600)
     def compute_cohorts(orders_df, customers_df):
         cust = customers_df[["customer_id", "signup_date"]].copy()
         cust["cohort_month"] = cust["signup_date"].dt.to_period("M")
@@ -374,7 +372,6 @@ elif page == "Cohort Retention":
 elif page == "Product Performance":
     st.title("Product Performance")
 
-    @st.cache_data(ttl=3600)
     def compute_product_perf(orders_df, items_df, products_df):
         delivered = orders_df[orders_df["status"]=="delivered"]["order_id"]
         rev = items_df[items_df["order_id"].isin(delivered)].groupby("product_id").agg(
@@ -390,7 +387,6 @@ elif page == "Product Performance":
         perf["return_rate"]  = 0.0
         return perf
 
-    @st.cache_data(ttl=3600)
     def compute_cat_summary(perf_df):
         return perf_df.groupby("category").agg(
             total_revenue=("gross_revenue","sum"),
