@@ -264,9 +264,9 @@ elif page == "Customer Segments":
             frequency=("order_id", "nunique"),
             monetary=("total_amount", "sum"),
         ).reset_index()
-        rfm["r_score"] = pd.qcut(rfm["recency"],  q=5, labels=[5,4,3,2,1]).astype(int)
-        rfm["f_score"] = pd.qcut(rfm["frequency"].rank(method="first"), q=5, labels=[1,2,3,4,5]).astype(int)
-        rfm["m_score"] = pd.qcut(rfm["monetary"],  q=5, labels=[1,2,3,4,5]).astype(int)
+        rfm["r_score"] = pd.qcut(rfm["recency"],  q=5, labels=[5,4,3,2,1], duplicates='drop').astype(float).fillna(3).astype(int)
+        rfm["f_score"] = pd.qcut(rfm["frequency"].rank(method="first"), q=5, labels=[1,2,3,4,5], duplicates='drop').astype(float).fillna(3).astype(int)
+        rfm["m_score"] = pd.qcut(rfm["monetary"],  q=5, labels=[1,2,3,4,5], duplicates='drop').astype(float).fillna(3).astype(int)
         def label(r, f, m):
             if r >= 4 and f >= 4 and m >= 4: return "Champions"
             if f >= 3 and m >= 3:             return "Loyal Customers"
